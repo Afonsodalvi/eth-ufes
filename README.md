@@ -558,7 +558,7 @@ address EOA 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42
 ```
 ```bash
 # Get account balance (in wei)
-curl -X POST https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY \
+curl -X POST https://eth-mainnet.g.alchemy.com/v2/ao0sjVU2UvaTX7pnRAgA1mH9BJ7GrbMj \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -685,9 +685,9 @@ curl -X POST https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY \
 ```bash
 # Cast commands (Foundry's JSON-RPC wrapper)
 cast block-number --rpc-url https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
-cast balance 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 --rpc-url https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+cast balance 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 --rpc-url https://eth-mainnet.g.alchemy.com/v2/ao0sjVU2UvaTX7pnRAgA1mH9BJ7GrbMj
 cast code 0xdAC17F958D2ee523a2206206994597C13D831ec7 --rpc-url https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
-cast call 0xdAC17F958D2ee523a2206206994597C13D831ec7 "balanceOf(address)" 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 --rpc-url https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+cast call 0xdAC17F958D2ee523a2206206994597C13D831ec7 "balanceOf(address)" 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 --rpc-url https://eth-mainnet.g.alchemy.com/v2/ao0sjVU2UvaTX7pnRAgA1mH9BJ7GrbMj
 ```
 
 #### Converting Hexadecimal Values
@@ -802,6 +802,198 @@ This repository is for educational purposes. Students are encouraged to:
 - [Foundry Book](https://book.getfoundry.sh/)
 - [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/)
 - [Consensys Smart Contract Best Practices](https://consensys.github.io/smart-contract-best-practices/)
+
+## 🌐 Módulo 3: Fluxo Completo de dApp
+
+### Arquitetura de uma dApp Completa
+
+O fluxo completo de uma dApp envolve múltiplas camadas interagindo para criar uma experiência de usuário fluida. Abaixo está o diagrama detalhado do processo:
+
+```mermaid
+sequenceDiagram
+    participant U as 👤 Usuário
+    participant UI as 🖥️ Interface (dApp)
+    participant W as 🔐 Wallet (MetaMask)
+    participant RPC as 🌐 RPC Provider
+    participant BC as ⛓️ Blockchain
+    participant V as ✅ Validadores
+    participant SC as 📄 Smart Contract
+
+    Note over U,SC: Fluxo Completo de Transação dApp
+
+    %% 1. Intenção do Usuário
+    U->>UI: 1. Clica "Aprovar" + "Swap"
+    Note over U,UI: Usuário expressa intenção<br/>através da interface
+
+    %% 2. Codificação da Chamada
+    UI->>UI: 2. Codifica chamada usando ABI
+    Note over UI: ABI: Application Binary Interface<br/>Função + Parâmetros → Calldata
+
+    %% 3. Solicitação à Wallet
+    UI->>W: 3. Solicita assinatura da transação
+    Note over UI,W: eth_sendTransaction<br/>ou eth_signTransaction
+
+    %% 4. Prompt da Wallet
+    W->>U: 4. Mostra prompt de confirmação
+    Note over W,U: "Confirmar transação?"<br/>Gas fee, valor, destino
+
+    %% 5. Assinatura do Usuário
+    U->>W: 5. Usuário assina (chave privada local)
+    Note over U,W: Assinatura criptográfica<br/>com chave privada
+
+    %% 6. Envio via JSON-RPC
+    W->>RPC: 6. Envia transação assinada
+    Note over W,RPC: eth_sendRawTransaction<br/>Transação serializada
+
+    %% 7. Propagação na Rede
+    RPC->>BC: 7. Transação propagada na rede
+    Note over RPC,BC: P2P network<br/>Broadcast da transação
+
+    %% 8. Inclusão no Bloco
+    V->>BC: 8. Validadores incluem no bloco
+    Note over V,BC: Mineração/Validação<br/>Consenso da rede
+
+    %% 9. Execução do Contrato
+    BC->>SC: 9. Executa função do contrato
+    Note over BC,SC: EVM execution<br/>Gas consumption
+
+    %% 10. Emissão de Eventos
+    SC->>BC: 10. Emite eventos/logs
+    Note over SC,BC: Event logs<br/>Transaction receipt
+
+    %% 11. Confirmação
+    BC->>RPC: 11. Bloco confirmado
+    Note over BC,RPC: Block confirmation<br/>Finality
+
+    %% 12. Escuta de Eventos
+    UI->>RPC: 12. Escuta eventos/logs
+    Note over UI,RPC: eth_getLogs<br/>Event filtering
+
+    %% 13. Atualização da UI
+    RPC->>UI: 13. Retorna eventos
+    UI->>UI: 14. Atualiza interface
+    Note over UI: UI reativa<br/>Estado atualizado
+
+    %% 14. Feedback ao Usuário
+    UI->>U: 15. Mostra resultado
+    Note over UI,U: "Transação confirmada!"<br/>Novo saldo, status
+```
+
+### Componentes do Fluxo
+
+#### 1. **Frontend (dApp Interface)**
+- **Responsabilidade**: Interface do usuário e codificação de chamadas
+- **Tecnologias**: React, Vue, Angular + Web3.js/ethers.js
+- **Função**: Converte intenções do usuário em chamadas de contrato
+
+#### 2. **Wallet (MetaMask, WalletConnect)**
+- **Responsabilidade**: Gerenciamento de chaves e assinatura de transações
+- **Segurança**: Chaves privadas nunca saem do dispositivo
+- **Função**: Interface entre usuário e blockchain
+
+#### 3. **RPC Provider (Infura, Alchemy, QuickNode)**
+- **Responsabilidade**: Gateway para a rede blockchain
+- **Função**: Conecta dApp à rede Ethereum
+- **APIs**: JSON-RPC, WebSocket para eventos em tempo real
+
+#### 4. **Blockchain Network**
+- **Responsabilidade**: Execução e consenso
+- **Componentes**: Validadores, EVM, Storage
+- **Função**: Processa transações e mantém estado
+
+#### 5. **Smart Contract**
+- **Responsabilidade**: Lógica de negócio
+- **Função**: Executa operações e emite eventos
+- **Estado**: Armazenado na blockchain
+
+### Fluxo Técnico Detalhado
+
+```mermaid
+graph TD
+    A[👤 Usuário clica 'Swap'] --> B[🖥️ dApp codifica com ABI]
+    B --> C[📝 Calldata gerado]
+    C --> D[🔐 Wallet mostra prompt]
+    D --> E[✍️ Usuário assina]
+    E --> F[📤 eth_sendRawTransaction]
+    F --> G[🌐 RPC Provider]
+    G --> H[⛓️ Rede P2P]
+    H --> I[⛏️ Validadores]
+    I --> J[📦 Incluído no bloco]
+    J --> K[⚡ EVM executa]
+    K --> L[📄 Contrato executa]
+    L --> M[📢 Emite eventos]
+    M --> N[✅ Bloco confirmado]
+    N --> O[👂 dApp escuta eventos]
+    O --> P[🔄 UI atualiza]
+    P --> Q[✅ Usuário vê resultado]
+
+    style A fill:#e1f5fe
+    style Q fill:#c8e6c9
+    style K fill:#fff3e0
+    style M fill:#f3e5f5
+```
+
+### Exemplo Prático: Swap de Tokens
+
+```javascript
+// 1. Usuário clica "Swap 100 USDC → ETH"
+const swapAmount = ethers.utils.parseUnits("100", 6); // 100 USDC
+
+// 2. dApp codifica a chamada
+const swapCalldata = await routerContract.interface.encodeFunctionData(
+    "swapExactTokensForETH",
+    [swapAmount, minETHOut, [USDC_ADDRESS, WETH_ADDRESS], userAddress, deadline]
+);
+
+// 3. Wallet solicita assinatura
+const tx = await signer.sendTransaction({
+    to: ROUTER_ADDRESS,
+    data: swapCalldata,
+    gasLimit: 300000,
+    gasPrice: await provider.getGasPrice()
+});
+
+// 4. Transação é enviada
+const receipt = await tx.wait();
+
+// 5. dApp escuta eventos
+const filter = routerContract.filters.Swap();
+const events = await routerContract.queryFilter(filter, receipt.blockNumber);
+
+// 6. UI atualiza com resultado
+updateUserBalance();
+showSuccessMessage("Swap realizado com sucesso!");
+```
+
+### Estados da Transação
+
+```mermaid
+stateDiagram-v2
+    [*] --> Intenção: Usuário clica
+    Intenção --> Codificada: dApp processa
+    Codificada --> Pendente: Wallet assina
+    Pendente --> Propagada: Enviada à rede
+    Propagada --> Confirmada: Incluída no bloco
+    Confirmada --> Finalizada: Múltiplas confirmações
+    Finalizada --> [*]: UI atualizada
+
+    Pendente --> Falhou: Erro de gas/rede
+    Propagada --> Falhou: Transação rejeitada
+    Falhou --> [*]: Erro mostrado ao usuário
+```
+
+### Monitoramento e Debugging
+
+```bash
+# Verificar status da transação
+cast tx 0xTRANSACTION_HASH --rpc-url $RPC_URL
+
+# Escutar eventos de um contrato
+cast logs --from-block latest --address CONTRACT_ADDRESS --rpc-url $RPC_URL
+
+# Verificar saldo após transação
+cast balance USER_ADDRESS --rpc-url $RPC_URL
+```
 
 ## 🏫 UFES Blockchain Education
 

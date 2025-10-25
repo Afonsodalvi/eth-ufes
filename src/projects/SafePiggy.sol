@@ -25,6 +25,7 @@ contract SafePiggy {
     // 🔒 Proteção contra reentrância
     // Estado que previne chamadas recursivas maliciosas
     bool private locked;
+    
 
     // ✔️ Eventos: facilitam auditoria e UX das dApps
     event Deposited(address indexed from, uint256 amount);
@@ -64,6 +65,7 @@ contract SafePiggy {
         _;
         locked = false;
     }
+    
 
     // ✔️ constructor: define o owner no momento do deploy
     constructor() {

@@ -12,14 +12,12 @@ ifeq ($(network),ethereum)
 endif
 
 ifeq ($(network),amoy)
-	EXPLORER_API_KEY := --etherscan-api-key $(EXPLORER_API_KEY) --verifier-url https://api.etherscan.io/v2/api?chainid=80002
-	NETWORK_ARGS := --rpc-url $(AMOY_RPC_URL) $(EXPLORER_API_KEY) --broadcast --gas-limit 30000000 --gas-price 20000000000 --gas-estimate-multiplier 200 --verify -vvvv
+	NETWORK_ARGS := --rpc-url $(AMOY_RPC_URL) --etherscan-api-key $(EXPLORER_API_KEY) --verifier-url https://api.etherscan.io/v2/api?chainid=80002 --broadcast --gas-limit 30000000 --gas-price 20000000000 --gas-estimate-multiplier 200 --verify -vvvv
 	CHAIN_ID := 80002
 endif
 
 ifeq ($(network),polygon)
-	EXPLORER_API_KEY := --etherscan-api-key $(EXPLORER_API_KEY) --verifier-url https://api.etherscan.io/v2/api?chainid=137
-	NETWORK_ARGS := --rpc-url $(POLYGON_RPC_URL) $(EXPLORER_API_KEY) --broadcast --gas-estimate-multiplier 200 --verify
+	NETWORK_ARGS := --rpc-url $(POLYGON_RPC_URL) --etherscan-api-key $(EXPLORER_API_KEY) --verifier-url https://api.etherscan.io/v2/api?chainid=137 --broadcast --gas-estimate-multiplier 200 --verify
 	CHAIN_ID := 137
 endif
 

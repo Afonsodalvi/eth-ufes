@@ -205,6 +205,84 @@ contract ClassVoteTest is Test {
         console.log("Close voting correctly rejected in Setup phase");
     }
 
+    function testReopenVotingOnTieAllowed() public {
+        // Open voting and create a tie
+        vm.prank(admin);
+        classVote.openVoting();
+
+        vm.prank(voter1);
+        classVote.vote(0);
+        vm.prank(voter2);
+        classVote.vote(1);
+
+        // Close voting -> should mark lastRoundWasTie = true
+        vm.prank(admin);
+        classVote.closeVoting();
+        assertEq(uint256(classVote.phase()), uint256(ClassVote.Phase.Ended));
+        assertTrue(classVote.lastRoundWasTie());
+
+        // Reopen on tie (only admin, only after Ended)
+        vm.prank(admin);
+        classVote.reopenVotingOnTie();
+        assertEq(uint256(classVote.phase()), uint256(ClassVote.Phase.Voting));
+        // Flag should reset to prevent multiple reopens without new tie
+        assertFalse(classVote.lastRoundWasTie());
+    }
+
+    function testReopenVotingOnTieRejectedWithoutTie() public {
+        // Open voting and produce a clear winner
+        vm.prank(admin);
+        classVote.openVoting();
+
+        vm.prank(voter1);
+        classVote.vote(0);
+        vm.prank(voter2);
+        classVote.vote(0);
+
+        // Close voting -> no tie
+        vm.prank(admin);
+        classVote.closeVoting();
+        assertEq(uint256(classVote.phase()), uint256(ClassVote.Phase.Ended));
+        assertFalse(classVote.lastRoundWasTie());
+
+        // Attempt reopen should revert with PhaseError (guard uses PhaseError)
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSignature("PhaseError()"));
+        classVote.reopenVotingOnTie();
+    }
+
+    function testReopenVotingOnTieOnlyAdmin() public {
+        // Setup tie and close
+        vm.prank(admin);
+        classVote.openVoting();
+        vm.prank(voter1);
+        classVote.vote(0);
+        vm.prank(voter2);
+        classVote.vote(1);
+        vm.prank(admin);
+        classVote.closeVoting();
+        assertTrue(classVote.lastRoundWasTie());
+
+        // Non-admin cannot reopen
+        vm.prank(voter1);
+        vm.expectRevert(abi.encodeWithSignature("OnlyAdmin()"));
+        classVote.reopenVotingOnTie();
+    }
+
+    function testReopenVotingOnTieWrongPhase() public {
+        // In Setup phase (not Ended) -> cannot reopen
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSignature("PhaseError()"));
+        classVote.reopenVotingOnTie();
+
+        // In Voting phase (not Ended) -> cannot reopen
+        vm.prank(admin);
+        classVote.openVoting();
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSignature("PhaseError()"));
+        classVote.reopenVotingOnTie();
+    }
+
     function testWinner() public {
         console.log("Testing winner function...");
 

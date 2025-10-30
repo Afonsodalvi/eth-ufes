@@ -25,6 +25,10 @@ contract ClassVote {
 
     Phase public phase;
 
+    // ---------- Estado de empate da última rodada ----------
+    // Indica se a rodada encerrada (Ended) terminou com empate entre propostas vencedoras
+    bool public lastRoundWasTie;
+
     // ---------- Eventos ----------
     event Opened();
     event Voted(address indexed voter, uint256 indexed proposal);
@@ -75,8 +79,43 @@ contract ClassVote {
 
     // ---------- Encerrar votação ----------
     function closeVoting() external onlyAdmin inPhase(Phase.Voting) {
+        // Detecta se houve empate entre as propostas vencedoras
+        // Didática do algoritmo de empate:
+        // - Varremos todas as propostas procurando o MAIOR número de votos (maxVotes)
+        // - Sempre que encontramos um valor MAIOR que maxVotes, atualizamos maxVotes
+        //   e reiniciamos a contagem de vencedores (winnersCount = 1), pois há
+        //   um novo líder isolado naquele momento.
+        // - Se encontramos uma proposta com votos IGUAIS a maxVotes, significa que ela
+        //   empata com o líder atual, então apenas incrementamos winnersCount.
+        // - Ao final do laço:
+        //     winnersCount == 1  -> há um único vencedor
+        //     winnersCount > 1   -> existe pelo menos um empate no topo
+        uint256 maxVotes = 0;
+        uint256 winnersCount = 0;
+        for (uint256 i = 0; i < proposals.length; i++) {
+            uint256 v = proposals[i].votes;
+            if (v > maxVotes) {
+                maxVotes = v;
+                winnersCount = 1; // novo líder isolado
+            } else if (v == maxVotes) {
+                winnersCount += 1; // mais um líder com mesmo máximo (empate no topo)
+            }
+        }
+
+        lastRoundWasTie = (winnersCount > 1);
         phase = Phase.Ended;
         emit Closed();
+    }
+
+    // ---------- Reabrir votação somente em caso de empate ----------
+    // Mantém votos anteriores e quem já votou continua sem poder votar novamente
+    function reopenVotingOnTie() external onlyAdmin inPhase(Phase.Ended) {
+        if (!lastRoundWasTie) revert PhaseError();
+        // Permite nova fase de votação sem limpar estado
+        phase = Phase.Voting;
+        // Reset da flag para impedir reaberturas sequenciais sem novo empate
+        lastRoundWasTie = false;
+        emit Opened();
     }
 
     // ---------- Ver vencedor ----------

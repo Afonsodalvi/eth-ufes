@@ -11,6 +11,7 @@ export class BaseContract {
     this.contractName = contractName;
     this.contract = null;
     this.contractWithSigner = null;
+    this.eventListeners = new Map(); // Para rastrear listeners ativos
   }
 
   /**
@@ -80,7 +81,7 @@ export class BaseContract {
   }
 
   /**
-   * Escuta eventos do contrato
+   * Escuta eventos do contrato usando polling manual (sem filtros)
    */
   async listenToEvent(eventName, callback) {
     try {
@@ -88,8 +89,25 @@ export class BaseContract {
         throw new Error('Contrato não inicializado');
       }
       
-      this.contract.on(eventName, callback);
-      console.log(`Escutando evento: ${eventName}`);
+      // Cria um wrapper para o callback que trata erros
+      const wrappedCallback = async (...args) => {
+        try {
+          await callback(...args);
+        } catch (error) {
+          console.error(`Erro no callback do evento ${eventName}:`, error);
+        }
+      };
+      
+      // Remove listener anterior se existir
+      if (this.eventListeners.has(eventName)) {
+        this.contract.off(eventName, this.eventListeners.get(eventName));
+      }
+      
+      // Adiciona o novo listener
+      this.contract.on(eventName, wrappedCallback);
+      this.eventListeners.set(eventName, wrappedCallback);
+      
+      console.log(`Escutando evento: ${eventName} (sem filtros automáticos)`);
     } catch (error) {
       console.error(`Erro ao escutar evento ${eventName}:`, error);
       throw error;
@@ -102,15 +120,48 @@ export class BaseContract {
   async stopListening(eventName = null) {
     try {
       if (eventName) {
-        this.contract.off(eventName);
-        console.log(`Parou de escutar evento: ${eventName}`);
+        if (this.eventListeners.has(eventName)) {
+          const callback = this.eventListeners.get(eventName);
+          this.contract.off(eventName, callback);
+          this.eventListeners.delete(eventName);
+          console.log(`Parou de escutar evento: ${eventName}`);
+        } else {
+          console.log(`Nenhum listener ativo para o evento: ${eventName}`);
+        }
       } else {
-        this.contract.removeAllListeners();
+        // Remove todos os listeners
+        for (const [event, callback] of this.eventListeners) {
+          try {
+            this.contract.off(event, callback);
+          } catch (error) {
+            console.warn(`Erro ao remover listener do evento ${event}:`, error.message);
+          }
+        }
+        this.eventListeners.clear();
         console.log('Parou de escutar todos os eventos');
       }
     } catch (error) {
       console.error('Erro ao parar de escutar eventos:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Limpa todos os recursos do contrato
+   */
+  async cleanup() {
+    try {
+      // Para todos os listeners
+      await this.stopListening();
+      
+      // Limpa referências
+      this.contract = null;
+      this.contractWithSigner = null;
+      this.eventListeners.clear();
+      
+      console.log(`${this.contractName} limpo com sucesso`);
+    } catch (error) {
+      console.error(`Erro ao limpar ${this.contractName}:`, error);
     }
   }
 
@@ -121,7 +172,8 @@ export class BaseContract {
     return {
       name: this.contractName,
       address: this.contractAddress,
-      hasSigner: !!this.contractWithSigner
+      hasSigner: !!this.contractWithSigner,
+      activeListeners: Array.from(this.eventListeners.keys())
     };
   }
 }

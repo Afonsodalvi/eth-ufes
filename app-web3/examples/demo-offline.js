@@ -27,7 +27,7 @@ async function demoOffline() {
   
   console.log('\n📚 Exemplos disponíveis:');
   console.log('   - basic-usage.js - Uso básico do sistema');
-  console.log('   - advanced-usage.js - Exemplos avançados');
+  console.log('   - simple-events.js - Eventos com polling manual (recomendado)');
   console.log('   - demo-offline.js - Esta demonstração');
   
   console.log('\n🔧 Para conectar à rede real:');

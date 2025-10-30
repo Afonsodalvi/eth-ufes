@@ -42,7 +42,7 @@ cp env.example .env
 ```env
 RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID
 PRIVATE_KEY=your_private_key_here
-COUNTER_CONTRACT_ADDRESS=0x1234567890123456789012345678901234567890
+COUNTER_CONTRACT_ADDRESS=0x7C5833e53A79F66C468BFA33E5F4a11C218D2357
 ```
 
 ## ⚙️ Configuração
@@ -123,27 +123,37 @@ async function exemplo() {
 # Exemplo básico
 node examples/basic-usage.js
 
-# Exemplo avançado
-node examples/advanced-usage.js
+# Exemplo com polling manual (solução definitiva para eventos)
+node examples/simple-events.js
+
+# Exemplo offline (sem conexão com blockchain)
+node examples/demo-offline.js
 ```
 
 ## 🔧 Exemplos Avançados
 
 ### Monitoramento de Eventos
 
-```javascript
-import { CounterContract } from './src/contracts/CounterContract.js';
+**Solução Definitiva: Polling Manual (Recomendada)**
 
-const counter = new CounterContract('0x...');
+Para evitar completamente o erro "filter not found", use o sistema de polling manual:
+
+```javascript
+import { CounterSimpleContract } from './src/contracts/CounterSimpleContract.js';
+
+const counter = new CounterSimpleContract('0x...');
 await counter.initialize();
 
-// Escuta eventos
-await counter.onNumberSet((newNumber) => {
-  console.log(`Número alterado para: ${newNumber}`);
+// Escuta eventos usando polling manual (sem filtros automáticos)
+await counter.onNumberSet((args, event) => {
+  console.log(`Evento: ${args[0]}, Bloco: ${event.blockNumber}`);
 });
 
 // Para de escutar
 await counter.stopListeningNumberSet();
+
+// Limpa recursos
+await counter.cleanup();
 ```
 
 ### Múltiplas Operações
@@ -297,6 +307,12 @@ await counter.stopListeningNumberSet();
 4. **Gas insuficiente**
    ```
    Solução: Aumente GAS_LIMIT ou verifique saldo do wallet
+   ```
+
+5. **Erro "filter not found" em eventos**
+   ```
+   Erro: could not coalesce error (error={ "code": -32000, "message": "filter not found" })
+   Solução: Use CounterSimpleContract em vez de CounterContract
    ```
 
 ### Logs de Debug

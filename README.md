@@ -27,7 +27,8 @@ src/
 │   ├── ClassVote.sol          # Voting system with phases
 │   ├── Escrow.sol             # Escrow system with arbitration
 │   ├── SafePiggy.sol          # Contract with security patterns
-│   └── TimeLockVault.sol      # Time-locked vault system
+│   ├── TimeLockVault.sol      # Time-locked vault system
+│   └── StakeToken.sol         # ERC20 with mint/burn + staking points
 └── ReentrancyAttacker.sol     # Malicious contract for testing
 
 test/
@@ -39,7 +40,8 @@ test/
 ├── ClassVote.t.sol            # Tests for voting system
 ├── Escrow.t.sol               # Tests for escrow system
 ├── SafePiggy.t.sol           # Comprehensive security tests
-└── TimeLockVault.t.sol        # Tests for time lock vault
+├── TimeLockVault.t.sol        # Tests for time lock vault
+└── StakeToken.t.sol          # Tests for ERC20 stake token
 ```
 
 ## 🚀 Getting Started
@@ -67,6 +69,13 @@ forge build
 # Configure environment (opcional)
 cp env.example .env
 # Edite o arquivo .env com suas configurações
+```
+
+### OpenZeppelin Contracts (Required for ERC20 Token)
+
+```bash
+# Install OpenZeppelin contracts library
+forge install OpenZeppelin/openzeppelin-contracts --no-commit
 ```
 
 ## 🚀 Deploy de Contratos
@@ -304,6 +313,48 @@ forge test --match-contract CounterTest
 ```bash
 forge test -vv
 ```
+
+## 🪙 ERC20 Stake Token (StakeToken.sol)
+
+### Overview
+
+- ERC20 token with:
+  - Owner minting
+  - Holder burning
+  - Simple staking that accrues time-based points
+- Points rate: 1 point per staked token per hour.
+- Points are non-transferable; claim via `claimPoints()`.
+
+### Key Functions
+
+- `mint(address to, uint256 amount)` (onlyOwner)
+- `burn(uint256 amount)`
+- `stake(uint256 amount)` / `unstake(uint256 amount)`
+- `claimPoints() returns (uint256)`
+- Views: `pointsOf(address)`, `stakedOf(address)`
+
+### Install Dependency
+
+```bash
+forge install OpenZeppelin/openzeppelin-contracts --no-commit
+```
+
+### Build
+
+```bash
+forge build
+```
+
+### Run Only Stake Token Tests
+
+```bash
+forge test --match-contract StakeTokenTest -vv
+```
+
+### Files
+
+- Contract: `src/projects/StakeToken.sol`
+- Tests: `test/StakeToken.t.sol`
 
 ## 📖 Educational Content
 
@@ -591,7 +642,7 @@ curl -X POST https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY \
   }'
 
 # Call contract function (read-only)
-curl -X POST https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY \
+curl -X POST https://eth-mainnet.g.alchemy.com/v2/ao0sjVU2UvaTX7pnRAgA1mH9BJ7GrbMj \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -693,7 +744,7 @@ cast call 0xdAC17F958D2ee523a2206206994597C13D831ec7 "balanceOf(address)" 0x7D20
 #### Converting Hexadecimal Values
 ```bash
 # Convert hex to decimal
-cast --to-dec 0x1164c8b840
+cast --to-dec 0x0000000000000000000000000000000000000000000000000000000000000087
 # Result: 74705320000 (USDT balance in smallest unit)
 
 # Convert wei to ETH (using division)
@@ -748,7 +799,7 @@ curl -X POST https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY \
   }"
 
 # Or use cast call directly (much simpler!)
-cast call 0xdAC17F958D2ee523a2206206994597C13D831ec7 "balanceOf(address)" 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 --rpc-url https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+cast call 0xdAC17F958D2ee523a2206206994597C13D831ec7 "balanceOf(address)" 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 --rpc-url https://eth-mainnet.g.alchemy.com/v2/ao0sjVU2UvaTX7pnRAgA1mH9BJ7GrbMj
 ```
 
 ## 📊 Test Coverage

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {StakeToken} from "src/projects/StakeToken.sol";
+import {StakeToken} from "../src/ercs/erc20/StakeToken.sol";
 
 contract StakeTokenTest is Test {
     StakeToken private token;

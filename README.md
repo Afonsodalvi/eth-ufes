@@ -779,6 +779,7 @@ cast calldata "balanceOf(address)" 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42
 cast calldata "transfer(address,uint256)" 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 1000000
 # Result: 0xa9059cbb0000000000000000000000007d2078784a291b6a5dfaf8d2cf847258a9752b4200000000000000000000000000000000000000000000000000000000000f4240
 ```
+cast calldata "nonces(address)" 0x988AefA7d373c5e0B28DbFbdB1De7Ce6f799dc3F
 
 #### Simplified JSON-RPC with Cast
 ```bash
@@ -799,7 +800,7 @@ curl -X POST https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY \
   }"
 
 # Or use cast call directly (much simpler!)
-cast call 0xdAC17F958D2ee523a2206206994597C13D831ec7 "balanceOf(address)" 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 --rpc-url https://eth-mainnet.g.alchemy.com/v2/ao0sjVU2UvaTX7pnRAgA1mH9BJ7GrbMj
+cast call 0xdAC17F958D2ee523a2206206994597C13D831ec7 "balanceOf(address)" 0x7D2078784A291b6a5dFaF8D2cf847258A9752B42 --rpc-url https://eth-mainnet.g.alchemy.com/v2/
 ```
 
 ## 📊 Test Coverage

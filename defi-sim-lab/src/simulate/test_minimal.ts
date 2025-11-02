@@ -9,6 +9,7 @@ import { tenderly } from '../tenderly.js';
 import { getAddress, parseUnits, createPublicClient, http } from 'viem';
 import { mainnet } from 'viem/chains';
 import { toDec } from '../util/num.js';
+import { getGasPriceString } from '../util/gas.js';
 
 // Vitalik (checksummed)
 const FROM = getAddress('0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045');
@@ -26,12 +27,20 @@ const publicClient = createPublicClient({
     console.log(`Project: ${process.env.TENDERLY_PROJECT}`);
     console.log(`Account: ${process.env.TENDERLY_ACCOUNT}\n`);
 
-    // Obter blockNumber atual
-    const blockNumber = await publicClient.getBlockNumber();
-    console.log(`📦 BlockNumber atual: ${blockNumber}\n`);
+    // Obter blockNumber atual e gas price
+    const [blockNumber, gasPriceStr] = await Promise.all([
+      publicClient.getBlockNumber(),
+      getGasPriceString()
+    ]);
+    console.log(`📦 BlockNumber atual: ${blockNumber}`);
+    console.log(`⛽ Gas price: ${gasPriceStr} wei\n`);
 
     const value = parseUnits('0.001', 18); // 0.001 ETH
-
+    
+    // Usar um endereço diferente para o destinatário (0x0000...0001 é um endereço válido)
+    // Self-transfers podem ter comportamento diferente em simulações
+    const TO = getAddress('0x0000000000000000000000000000000000000001');
+    
     // SDK usa blockNumber (camelCase, número) e NÃO precisa de network_id
     // (a network já foi passada no constructor do Tenderly)
     const payload = {
@@ -40,10 +49,10 @@ const publicClient = createPublicClient({
       save_if_fails: true,
       transaction: {
         from: FROM.toLowerCase(),           // lowercase evita validações chatas
-        to: FROM.toLowerCase(),             // transferência para si
-        gas: 21000,                         // number pequeno: ok
-        gas_price: '0',                     // string decimal (ou 0)
-        value: toDec(value),                // string decimal (não hex)
+        to: TO.toLowerCase(),                // transferência para endereço diferente
+        gas: 23000,                          // gas um pouco maior para segurança
+        gas_price: gasPriceStr,             // gas price obtido dinamicamente
+        value: toDec(value),                 // string decimal (não hex)
         input: '0x'
       },
       // opcional: dá saldo na simulação
@@ -58,8 +67,24 @@ const publicClient = createPublicClient({
     console.log('\n🚀 Enviando para Tenderly...\n');
 
     const res = await tenderly.simulator.simulateTransaction(payload);
+    
+    if (!res) {
+      throw new Error('Resposta vazia do Tenderly');
+    }
 
-    console.log('✅ OK:');
+    // Verificar se a transação foi executada com sucesso
+    const hasError = res.trace?.some((t: any) => t.error) || (res as any).transaction?.error;
+    const status = (res as any).transaction?.status ?? res.status;
+    
+    if (hasError) {
+      console.log('❌ ERRO na simulação:');
+    } else {
+      console.log('✅ Simulação executada com sucesso!');
+      console.log(`   Status da transação: ${status ? '✅ Sucesso' : '⚠️  Status false (pode ser normal para transfers simples)'}`);
+      console.log(`   Gas usado: ${(res as any).transaction?.gas_used || res.gasUsed || 'N/A'}`);
+    }
+    
+    console.log('\n📋 Detalhes completos:');
     console.log(JSON.stringify(res, null, 2));
 
   } catch (error: any) {

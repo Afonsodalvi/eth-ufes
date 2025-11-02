@@ -8,6 +8,8 @@
     "compare": "tsx src/simulate/01_uniswap_compare.ts",
     "compare:raw": "tsx src/simulate/01_uniswap_compare_raw.ts",
     "test:minimal": "tsx src/simulate/test_minimal.ts",
+    "test:formats": "tsx src/simulate/test_formats.ts",
+    "test:rest": "tsx src/simulate/test_rest.ts",
     "bundle:spot": "tsx src/simulate/02_bundle_spot_oracle_attack.ts",
     "override:ward": "tsx src/simulate/03_state_override_dai_ward.ts",
     "vnet:swapv3": "tsx src/vnet/04_vnet_swap_v3_send.ts",

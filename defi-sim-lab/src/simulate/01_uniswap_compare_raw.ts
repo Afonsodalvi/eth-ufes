@@ -14,6 +14,7 @@ import { mainnet } from 'viem/chains';
 import { UNISWAP_V2_ROUTER, WETH, DAI, DEFAULT_FROM } from '../constants.js';
 import { UNISWAP_V2_ROUTER_ABI } from '../abi/uniswapV2Router.js';
 import { toDec } from '../util/num.js';
+import { getGasPriceString } from '../util/gas.js';
 
 // Cliente RPC público para obter block_number atual
 const publicClient = createPublicClient({
@@ -53,11 +54,15 @@ try {
     const value = parseUnits('0.01', 18);
     const deadline = BigInt(Math.floor(Date.now()/1000) + 900);
 
-    // Obter block_number atual
-    console.log('⏳ Obtendo block_number atual...');
-    const blockNumber = await publicClient.getBlockNumber();
+    // Obter block_number atual e gas price
+    console.log('⏳ Obtendo block_number atual e gas price...');
+    const [blockNumber, gasPriceStr] = await Promise.all([
+      publicClient.getBlockNumber(),
+      getGasPriceString()
+    ]);
     const blockNumberNum = Number(blockNumber);
-    console.log(`   BlockNumber: ${blockNumberNum}\n`);
+    console.log(`   BlockNumber: ${blockNumberNum}`);
+    console.log(`   Gas Price: ${gasPriceStr} wei\n`);
 
     // Usar TEST_FROM para garantir que funciona
     console.log(`⚠️  Testando com endereço: ${TEST_FROM} (Vitalik)`);
@@ -82,7 +87,7 @@ try {
       from: TEST_FROM.toLowerCase(),      // TOPO - lowercase evita validações chatas
       to: UNISWAP_V2_ROUTER.toLowerCase(), // TOPO
       gas: 2_500_000,                    // TOPO - número
-      gas_price: 0,                      // TOPO - número (ou '0' string)
+      gas_price: gasPriceStr,            // TOPO - gas price obtido dinamicamente
       value: valueStr,                   // TOPO - string decimal (não hex)
       input,                             // TOPO
       state_objects: {                   // TOPO

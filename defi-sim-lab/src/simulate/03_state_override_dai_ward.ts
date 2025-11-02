@@ -1,8 +1,16 @@
 import 'dotenv/config';
 import axios from 'axios';
-import { keccak256, padHex } from 'viem';
+import { keccak256, padHex, createPublicClient, http } from 'viem';
+import { mainnet } from 'viem/chains';
+import { getEip1559Fees } from '../util/eip1559.js';
 
 const { TENDERLY_ACCOUNT, TENDERLY_PROJECT, TENDERLY_KEY } = process.env;
+
+// Cliente RPC público para obter blockNumber atual
+const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http('https://eth.llamarpc.com')
+});
 
 // exemplo didático do doc: tornar um endereço "ward" no DAI para poder mintar
 const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F';
@@ -36,15 +44,26 @@ function calcStorageSlot(addr: `0x${string}`, slot: bigint): `0x${string}` {
   console.log(`   wards[${FAKE_WARD}] será definido como 1 (ativo)\n`);
 
   try {
+    // Obter block_number atual e fees EIP-1559
+    const blockNumber = await publicClient.getBlockNumber();
+    const fees = await getEip1559Fees(blockNumber);
+    const blockNumberNum = Number(blockNumber);
+
+    console.log(`📦 BlockNumber: ${blockNumber}`);
+    console.log(`⛽ Max Fee Per Gas: ${fees.maxFeePerGas} wei\n`);
+
     const res = await axios.post(simulateUrl, {
       save: true,
       save_if_fails: true,
       simulation_type: 'full',
       network_id: '1',
-      from: FAKE_WARD,
-      to: DAI,
+      block_number: blockNumberNum,
+      from: FAKE_WARD.toLowerCase(),
+      to: DAI.toLowerCase(),
       input,
       gas: 8_000_000,
+      maxFeePerGas: fees.maxFeePerGas,
+      maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
       state_objects: {
         [DAI]: {
           storage: {
@@ -66,18 +85,39 @@ function calcStorageSlot(addr: `0x${string}`, slot: bigint): `0x${string}` {
     const assetChanges = simulation?.asset_changes || [];
     
     if (assetChanges.length > 0) {
-      console.log('Mudanças de Assets:');
+      console.log('📊 Mudanças de Assets:');
       assetChanges.forEach((change: any) => {
         if (change.asset?.symbol === 'DAI') {
-          console.log(`  ${change.address}: ${change.delta || '0'} DAI`);
+          const amount = change.amount || change.delta || '0';
+          const type = change.type || '';
+          const address = change.address || change.to || 'N/A';
+          console.log(`  ${type} ${amount} DAI para ${address}`);
         }
       });
     } else {
       console.log('(Nenhuma mudança de asset detectada)');
     }
     
+    // Mostrar mudanças de estado
+    const stateChanges = simulation?.state_changes || [];
+    if (stateChanges.length > 0) {
+      console.log('\n🔐 Mudanças de Estado (Storage):');
+      stateChanges.forEach((sc: any) => {
+        if (sc.address?.toLowerCase() === DAI.toLowerCase() && sc.storage) {
+          sc.storage.forEach((s: any) => {
+            if (s.slot === storageKey) {
+              console.log(`  Slot ${storageKey}:`);
+              console.log(`    Antes: ${s.previousValue}`);
+              console.log(`    Depois: ${s.newValue}`);
+            }
+          });
+        }
+      });
+    }
+    
     console.log('\n💡 Observação: Esta simulação só funciona com override!');
-    console.log('   Na mainnet real, FAKE_WARD não tem permissão para mintar.\n');
+    console.log('   Na mainnet real, FAKE_WARD não tem permissão para mintar.');
+    console.log('   O override permite simular cenários de privilégios sem alterar a blockchain real.\n');
     
   } catch (error: any) {
     console.error('❌ Erro na simulação:', error.response?.data || error.message);

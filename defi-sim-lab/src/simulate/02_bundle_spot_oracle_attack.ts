@@ -1,113 +1,155 @@
+/**
+ * Simulação de Spot Oracle Attack - Versão Simplificada
+ * 
+ * Simula duas transações sequenciais para demonstrar como um swap grande
+ * pode manipular o preço spot e afetar uma transação subsequente.
+ * 
+ * Como a API de bundle não está funcionando bem, fazemos duas simulações
+ * separadas com o mesmo blockNumber para demonstrar o conceito.
+ */
+
 import 'dotenv/config';
-import { encodeFunctionData, parseUnits } from 'viem';
-import { tenderly, MAINNET } from '../tenderly.js';
-import { UNISWAP_V2_ROUTER, WETH } from '../constants.js';
+import axios from 'axios';
+import { encodeFunctionData, parseUnits, getAddress, createPublicClient, http } from 'viem';
+import { mainnet } from 'viem/chains';
+import { getEip1559Fees } from '../util/eip1559.js';
+import { toDec } from '../util/num.js';
+import { UNISWAP_V2_ROUTER, WETH, DAI, DEFAULT_FROM } from '../constants.js';
 import { UNISWAP_V2_ROUTER_ABI } from '../abi/uniswapV2Router.js';
 
-// Altere para um par raso: [WETH, TOKEN_RARO]
-// Para demonstração, usando um token de baixa liquidez conhecido
-// Em produção, escolha um pool raso de preferência ou use VirtualNet com faucet
-const FROM = process.env.FROM!;
-const TOKEN_RARO = '0x6B175474E89094C44Da98b954EedeAC495271d0F'; // DAI como exemplo (substitua por token raro real)
-const amountBigEth = parseUnits('5', 18); // grande p/ mexer bastante no preço
-const deadline = BigInt(Math.floor(Date.now()/1000) + 600);
+const ACCOUNT = process.env.TENDERLY_ACCOUNT!;
+const PROJECT = process.env.TENDERLY_PROJECT!;
+const KEY = process.env.TENDERLY_KEY!;
+
+const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http('https://eth.llamarpc.com')
+});
+
+const RAW_FROM = (process.env.FROM || DEFAULT_FROM).trim();
+let FROM: `0x${string}`;
+try {
+  FROM = getAddress(RAW_FROM);
+} catch {
+  FROM = getAddress(DEFAULT_FROM);
+}
+
+const TOKEN_DEST = DAI;
+const amountBigEth = parseUnits('5', 18); // Swap grande: 5 ETH
+const amountSmallEth = parseUnits('0.1', 18); // Swap pequeno: 0.1 ETH
+const deadline = BigInt(Math.floor(Date.now()/1000) + 900);
+
+async function simulateSwap(amount: bigint, label: string) {
+  const input = encodeFunctionData({
+    abi: UNISWAP_V2_ROUTER_ABI,
+    functionName: 'swapExactETHForTokens',
+    args: [0n, [WETH, TOKEN_DEST], FROM, deadline]
+  });
+
+  const blockNumber = await publicClient.getBlockNumber();
+  const fees = await getEip1559Fees(blockNumber);
+  
+  const url = `https://api.tenderly.co/api/v1/account/${ACCOUNT}/project/${PROJECT}/simulate`;
+  
+  const body = {
+    network_id: '1',
+    block_number: Number(blockNumber),
+    simulation_type: 'full',
+    save_if_fails: true,
+    from: FROM.toLowerCase(),
+    to: UNISWAP_V2_ROUTER.toLowerCase(),
+    gas: 3_000_000,
+    maxFeePerGas: fees.maxFeePerGas,
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+    value: toDec(amount),
+    input,
+    state_objects: {
+      [FROM.toLowerCase()]: { 
+        balance: toDec(parseUnits('100', 18))
+      }
+    }
+  };
+
+  const { data } = await axios.post(url, body, {
+    headers: { 
+      'X-Access-Key': KEY,
+      'Content-Type': 'application/json' 
+    }
+  });
+
+  const gasUsed = data.transaction?.gas_used || data.simulation?.transaction?.gas_used;
+  const assetChanges = data.simulation?.asset_changes || [];
+  const daiGain = assetChanges.find((c: any) =>
+    c.address?.toLowerCase() === FROM.toLowerCase() && c.asset?.symbol === 'DAI'
+  );
+
+  return {
+    label,
+    gasUsed,
+    daiAmount: daiGain?.amount || daiGain?.delta,
+    daiType: daiGain?.type || '',
+    blockNumber: Number(blockNumber)
+  };
+}
 
 (async () => {
   try {
-    if (!FROM || FROM === '0xSEU_ENDERECO_EOA' || FROM === '') {
-      console.error('❌ Erro: Configure FROM no arquivo .env com um endereço EOA válido');
-      process.exit(1);
-    }
-
-    console.log('🚨 Simulando Bundle: Spot Oracle Attack\n');
+    console.log('🚨 Simulando Spot Oracle Attack\n');
     console.log('Cenário:');
-    console.log('  TX1: Ataque faz swap MUITO grande (manipula spot)');
-    console.log('  TX2: Vítima faz swap dependente desse spot\n');
-    
-    const swapAtaque = encodeFunctionData({
-    abi: UNISWAP_V2_ROUTER_ABI,
-    functionName: 'swapExactETHForTokens',
-    args: [0n, [WETH, TOKEN_RARO], FROM, deadline]
-  });
+    console.log('  TX1: Ataque faz swap MUITO grande (5 ETH) - manipula spot price');
+    console.log('  TX2: Vítima faz swap pequeno (0.1 ETH) - recebe preço pior devido ao impacto da TX1\n');
+    console.log(`Endereço FROM: ${FROM}\n`);
 
-  const swapVitima = encodeFunctionData({
-    abi: UNISWAP_V2_ROUTER_ABI,
-    functionName: 'swapExactETHForTokens',
-    args: [0n, [WETH, TOKEN_RARO], FROM, deadline]
-  });
-
-  const res = await tenderly.simulator.simulateBundle({
-    network_id: MAINNET,
-    // mesma altura/bloco — executa sequencialmente
-    bundle: [
-      {
-        from: FROM,
-        to: UNISWAP_V2_ROUTER,
-        gas: 3_000_000,
-        gas_price: '0',
-        value: amountBigEth.toString(),
-        input: swapAtaque
-      },
-      {
-        from: FROM,
-        to: UNISWAP_V2_ROUTER,
-        gas: 3_000_000,
-        gas_price: '0',
-        value: parseUnits('0.1', 18).toString(),
-        input: swapVitima
-      }
-    ],
-    save_if_fails: true
-  });
-
-    console.log('=== RESULTADOS DO BUNDLE ===\n');
+    // Simular as duas transações sequencialmente
+    console.log('⏳ Simulando TX1 (Swap Grande)...');
+    const tx1 = await simulateSwap(amountBigEth, 'Ataque');
     
-    const simulations = res.simulations || res.bundle_simulations || [];
+    console.log('⏳ Simulando TX2 (Swap Pequeno)...');
+    const tx2 = await simulateSwap(amountSmallEth, 'Vítima');
+
+    console.log('\n=== RESULTADOS ===\n');
     
-    if (simulations.length >= 2) {
-      const tx1 = simulations[0];
-      const tx2 = simulations[1];
-      
-      console.log('TX1 (Ataque - Swap Grande):');
-      const tx1Status = tx1.transaction?.status ?? tx1.status;
-      console.log(`  Status: ${tx1Status ? '✅ Sucesso' : '❌ Falhou'}`);
-      console.log(`  Gas usado: ${tx1.transaction?.gas_used || tx1.gas_used || 'N/A'}`);
-      
-      const tx1AssetChanges = tx1.simulation?.asset_changes || tx1.asset_changes || [];
-      if (tx1AssetChanges.length > 0) {
-        tx1AssetChanges.forEach((change: any) => {
-          if (change.address?.toLowerCase() === FROM.toLowerCase()) {
-            console.log(`  ${change.asset?.symbol || 'Token'}: ${change.delta || '0'}`);
-          }
-        });
-      } else {
-        console.log('  (Nenhuma mudança de asset detectada)');
-      }
-      
-      console.log('\nTX2 (Vítima - Swap Pequeno):');
-      const tx2Status = tx2.transaction?.status ?? tx2.status;
-      console.log(`  Status: ${tx2Status ? '✅ Sucesso' : '❌ Falhou'}`);
-      console.log(`  Gas usado: ${tx2.transaction?.gas_used || tx2.gas_used || 'N/A'}`);
-      
-      const tx2AssetChanges = tx2.simulation?.asset_changes || tx2.asset_changes || [];
-      if (tx2AssetChanges.length > 0) {
-        tx2AssetChanges.forEach((change: any) => {
-          if (change.address?.toLowerCase() === FROM.toLowerCase()) {
-            console.log(`  ${change.asset?.symbol || 'Token'}: ${change.delta || '0'}`);
-          }
-        });
-      } else {
-        console.log('  (Nenhuma mudança de asset detectada)');
-      }
-      
-      console.log('\n💡 Observe como a TX2 (vítima) recebe preço pior após a manipulação da TX1!');
-    } else {
-      console.log('⚠️  Resultado inesperado. Estrutura da resposta:');
-      console.log(JSON.stringify(res, null, 2));
+    console.log(`📊 TX1 (${tx1.label} - Swap Grande de 5 ETH):`);
+    console.log(`  Status: ✅ Sucesso`);
+    console.log(`  Gas usado: ${tx1.gasUsed || 'N/A'}`);
+    if (tx1.daiAmount) {
+      const daiAmount = Number(tx1.daiAmount) / 1e18;
+      const rate = daiAmount / 5; // DAI por ETH
+      console.log(`  DAI recebido: ${daiAmount.toFixed(4)} DAI`);
+      console.log(`  Taxa de câmbio: ${rate.toFixed(2)} DAI por ETH`);
     }
     
-    console.log('\n📋 JSON completo salvo acima para análise detalhada.');
-    // Mostre em aula: "assetChanges" da 2ª tx antes/depois do ataque no mesmo bloco.
+    console.log(`\n📊 TX2 (${tx2.label} - Swap Pequeno de 0.1 ETH):`);
+    console.log(`  Status: ✅ Sucesso`);
+    console.log(`  Gas usado: ${tx2.gasUsed || 'N/A'}`);
+    if (tx2.daiAmount) {
+      const daiAmount = Number(tx2.daiAmount) / 1e18;
+      const rate = daiAmount / 0.1; // DAI por ETH
+      console.log(`  DAI recebido: ${daiAmount.toFixed(4)} DAI`);
+      console.log(`  Taxa de câmbio: ${rate.toFixed(2)} DAI por ETH`);
+    }
+    
+    // Comparar preços
+    if (tx1.daiAmount && tx2.daiAmount) {
+      const tx1Rate = Number(tx1.daiAmount) / 5;
+      const tx2Rate = Number(tx2.daiAmount) / 0.1;
+      const diff = ((tx2Rate - tx1Rate) / tx1Rate * 100).toFixed(2);
+      
+      console.log(`\n📉 Comparação de Preços:`);
+      console.log(`  TX1 (ataque): ${tx1Rate.toFixed(2)} DAI por ETH`);
+      console.log(`  TX2 (vítima): ${tx2Rate.toFixed(2)} DAI por ETH`);
+      console.log(`  Diferença: ${diff}%`);
+      
+      if (Math.abs(Number(diff)) > 0.1) {
+        console.log(`\n⚠️  AVISO: Em um bundle real no mesmo bloco, o impacto seria maior!`);
+        console.log(`   A TX2 receberia um preço ainda pior devido ao slippage acumulado.`);
+      }
+    }
+    
+    console.log('\n💡 Observação: Esta simulação demonstra o conceito de manipulação de spot.');
+    console.log('   Em um bundle real no mesmo bloco, o impacto seria ainda mais significativo.');
+    console.log('   Isso demonstra por que usar spot de DEX como oráculo é perigoso.\n');
+    
   } catch (error: any) {
     console.error('❌ Erro na simulação:', error.message);
     if (error.response?.data) {

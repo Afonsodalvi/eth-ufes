@@ -1,0 +1,32 @@
+{
+  "name": "defi-sim-lab",
+  "version": "1.0.0",
+  "description": "Laboratório didático DeFi com simulações Tenderly: Uniswap v2 vs v3 e demonstrações de riscos",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "compare": "tsx src/simulate/01_uniswap_compare.ts",
+    "compare:raw": "tsx src/simulate/01_uniswap_compare_raw.ts",
+    "test:minimal": "tsx src/simulate/test_minimal.ts",
+    "bundle:spot": "tsx src/simulate/02_bundle_spot_oracle_attack.ts",
+    "override:ward": "tsx src/simulate/03_state_override_dai_ward.ts",
+    "vnet:swapv3": "tsx src/vnet/04_vnet_swap_v3_send.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["defi", "tenderly", "uniswap", "simulation", "blockchain"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@tenderly/sdk": "^0.3.1",
+    "viem": "^2.0.0",
+    "abitype": "^1.0.0",
+    "dotenv": "^16.4.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0",
+    "@types/node": "^20.10.0"
+  }
+}

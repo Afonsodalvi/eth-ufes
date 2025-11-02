@@ -18,23 +18,60 @@ export class ProviderManager {
    */
   async initialize(rpcUrl = config.rpcUrl, privateKey = config.privateKey) {
     try {
-      // Cria o provider
+      console.log(`Tentando conectar ao RPC: ${rpcUrl.substring(0, 50)}...`);
+      
+      // Cria o provider (ethers v6)
       this.provider = new ethers.JsonRpcProvider(rpcUrl);
       
-      // Verifica a conexão
-      const network = await this.provider.getNetwork();
-      console.log(`Conectado à rede: ${network.name} (Chain ID: ${network.chainId})`);
+      // Testa a conexão com retry e timeout explícito
+      console.log('Testando conexão com a rede...');
+      
+      // Verifica a conexão com retry
+      let network;
+      let attempts = 0;
+      const maxAttempts = 3;
+      const timeoutMs = 60000; // 60 segundos
+      
+      while (attempts < maxAttempts) {
+        try {
+          // Usa Promise.race para implementar timeout manual
+          network = await Promise.race([
+            this.provider.getNetwork(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error(`Timeout após ${timeoutMs/1000} segundos`)), timeoutMs)
+            )
+          ]);
+          break;
+        } catch (error) {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            const errorMsg = error.message || String(error);
+            throw new Error(`Falha ao conectar após ${maxAttempts} tentativas: ${errorMsg}`);
+          }
+          console.log(`   Tentativa ${attempts}/${maxAttempts} falhou: ${error.message || error}`);
+          console.log(`   Tentando novamente em 2 segundos...`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Espera 2s antes de retry
+        }
+      }
+      
+      console.log(`✅ Conectado à rede: ${network.name} (Chain ID: ${network.chainId})`);
       
       // Se uma chave privada foi fornecida, cria o wallet
       if (privateKey) {
         this.wallet = new ethers.Wallet(privateKey, this.provider);
         this.signer = this.wallet;
-        console.log(`Wallet conectado: ${this.wallet.address}`);
+        console.log(`✅ Wallet conectado: ${this.wallet.address}`);
       }
       
       return true;
     } catch (error) {
-      console.error('Erro ao inicializar provider:', error);
+      console.error('\n❌ Erro ao inicializar provider:', error.message);
+      console.error('\n💡 Dicas de solução:');
+      console.error('   1. Verifique se o RPC_URL no .env está correto');
+      console.error('   2. Verifique sua conexão com a internet');
+      console.error('   3. Verifique se há firewall ou proxy bloqueando');
+      console.error('   4. Tente usar outro endpoint RPC (ex: https://rpc-amoy.polygon.technology)');
+      console.error('   5. Execute: node examples/test-rpc.js para testar a conectividade');
       throw error;
     }
   }

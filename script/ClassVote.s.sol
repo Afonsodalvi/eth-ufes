@@ -10,10 +10,10 @@ contract ClassVoteScript is Script {
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         require(deployerKey != 0, "Missing PRIVATE_KEY");
-        
+
         address deployer = vm.addr(deployerKey);
         console.log("Deployer:", deployer);
-        
+
         // Configurações do deploy
         string[] memory proposalNames = new string[](3);
         proposalNames[0] = "Proposal A - Implement voting system";
@@ -21,9 +21,9 @@ contract ClassVoteScript is Script {
         proposalNames[2] = "Proposal C - Add security features";
 
         vm.startBroadcast(deployerKey);
-        
+
         ClassVote classVote = new ClassVote(proposalNames);
-        
+
         vm.stopBroadcast();
 
         // Logs para verificação
@@ -31,7 +31,7 @@ contract ClassVoteScript is Script {
         console.log("Admin:", classVote.admin());
         console.log("Phase:", uint256(classVote.phase()));
         console.log("Proposals count:", classVote.proposalsCount());
-        
+
         // Log das propostas
         for (uint256 i = 0; i < proposalNames.length; i++) {
             (string memory name, uint256 votes) = classVote.proposals(i);

@@ -10,14 +10,14 @@ contract TimeLockVaultScript is Script {
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         require(deployerKey != 0, "Missing PRIVATE_KEY");
-        
+
         address deployer = vm.addr(deployerKey);
         console.log("Deployer:", deployer);
-        
+
         vm.startBroadcast(deployerKey);
-        
+
         TimeLockVault timeLockVault = new TimeLockVault();
-        
+
         vm.stopBroadcast();
 
         // Logs para verificação

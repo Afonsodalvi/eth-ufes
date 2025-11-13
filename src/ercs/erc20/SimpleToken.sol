@@ -14,7 +14,7 @@ contract SimpleERC20Token {
     event SimpleERC20Token_Transfer(address from, address to, uint256 value);
     event SimpleERC20Token_Approval(address owner, address spender, uint256 value);
 
-		error SimpleERC20Token_NotEnoughBalance();
+    error SimpleERC20Token_NotEnoughBalance();
 
     constructor(uint256 _total) {
         s_totalSupply = _total;
@@ -30,7 +30,7 @@ contract SimpleERC20Token {
     }
 
     function transfer(address _receiver, uint256 _numTokens) public returns (bool) {
-        if(_numTokens > s_balances[msg.sender]) revert SimpleERC20Token_NotEnoughBalance();
+        if (_numTokens > s_balances[msg.sender]) revert SimpleERC20Token_NotEnoughBalance();
 
         s_balances[msg.sender] = s_balances[msg.sender] - _numTokens;
         s_balances[_receiver] = s_balances[_receiver] + _numTokens;
@@ -46,7 +46,7 @@ contract SimpleERC20Token {
         return true;
     }
 
-    function allowance(address _owner, address _delegate) public view returns (uint) {
+    function allowance(address _owner, address _delegate) public view returns (uint256) {
         return s_allowed[_owner][_delegate];
     }
 

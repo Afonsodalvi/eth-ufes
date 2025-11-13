@@ -105,5 +105,3 @@ contract StakeToken is ERC20, ERC20Burnable, Ownable {
         userLastUpdateTs[user] = block.timestamp;
     }
 }
-
-

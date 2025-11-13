@@ -93,5 +93,3 @@ contract StakeTokenTest is Test {
         vm.stopPrank();
     }
 }
-
-

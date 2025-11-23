@@ -68,7 +68,8 @@ async function simV2() {
       network_id: '1',
       block_number: Number(blockNumber),
       simulation_type: 'full',
-      save_if_fails: true,
+      save: true,  // Salva sempre no dashboard
+      save_if_fails: true,  // Também salva se falhar
       from: FROM.toLowerCase(),
       to: UNISWAP_V2_ROUTER.toLowerCase(),
       gas: 2_500_000,
@@ -91,6 +92,15 @@ async function simV2() {
     });
 
     console.log('   ✅ Recebido do Tenderly!');
+    
+    // Obter ID da simulação e URL do dashboard
+    const simId = data.simulation?.id || data.id;
+    const dashboardUrl = simId ? `https://dashboard.tenderly.co/${ACCOUNT}/${PROJECT}/simulator/${simId}` : null;
+    
+    // Mostrar ID da simulação se foi salva
+    if (simId) {
+      console.log(`   📊 Simulação salva no dashboard: ${dashboardUrl}`);
+    }
 
     const gasUsed = data.transaction?.gas_used || data.simulation?.transaction?.gas_used;
     const output = data.transaction?.output || data.simulation?.transaction?.output;
@@ -191,7 +201,7 @@ async function simV2() {
     const daiAmountNum = finalDaiAmount ? Number(finalDaiAmount) / 1e18 : 0;
     const exchangeRate = daiAmountNum > 0 ? (daiAmountNum / ethAmount).toFixed(2) : 'N/A';
 
-    return { gasUsed, amountOut, daiGain: finalDaiAmount, daiType, exchangeRate, isEstimated };
+    return { gasUsed, amountOut, daiGain: finalDaiAmount, daiType, exchangeRate, isEstimated, dashboardUrl };
   } catch (error: any) {
     console.error('   ❌ Erro na chamada ao Tenderly (V2):');
     console.error(`      Mensagem: ${error.message || error}`);
@@ -243,7 +253,8 @@ async function simV3() {
       network_id: '1',
       block_number: Number(blockNumber),
       simulation_type: 'full',
-      save_if_fails: true,
+      save: true,  // Salva sempre no dashboard
+      save_if_fails: true,  // Também salva se falhar
       from: FROM.toLowerCase(),
       to: UNISWAP_V3_SWAPROUTER.toLowerCase(),
       gas: 2_500_000,
@@ -266,6 +277,15 @@ async function simV3() {
     });
 
     console.log('   ✅ Recebido do Tenderly!');
+    
+    // Obter ID da simulação e URL do dashboard
+    const simId = data.simulation?.id || data.id;
+    const dashboardUrl = simId ? `https://dashboard.tenderly.co/${ACCOUNT}/${PROJECT}/simulator/${simId}` : null;
+    
+    // Mostrar ID da simulação se foi salva
+    if (simId) {
+      console.log(`   📊 Simulação salva no dashboard: ${dashboardUrl}`);
+    }
 
     const gasUsed = data.transaction?.gas_used || data.simulation?.transaction?.gas_used;
     const output = data.transaction?.output || data.simulation?.transaction?.output;
@@ -342,7 +362,7 @@ async function simV3() {
     const daiAmountNum = finalDaiAmount ? Number(finalDaiAmount) / 1e18 : 0;
     const exchangeRate = daiAmountNum > 0 ? (daiAmountNum / ethAmount).toFixed(2) : 'N/A';
 
-    return { gasUsed, amountOut, daiGain: finalDaiAmount, daiType, exchangeRate, isEstimated };
+    return { gasUsed, amountOut, daiGain: finalDaiAmount, daiType, exchangeRate, isEstimated, dashboardUrl };
   } catch (error: any) {
     console.error('   ❌ Erro na chamada ao Tenderly (V3):');
     console.error(`      Mensagem: ${error.message || error}`);
@@ -382,6 +402,9 @@ async function simV3() {
     } else {
       console.log(`  DAI recebido: N/A (Tenderly não retornou dados)`);
     }
+    if (v2.dashboardUrl) {
+      console.log(`  🔗 Dashboard: ${v2.dashboardUrl}`);
+    }
     
     console.log('\n📊 Uniswap V3:');
     console.log(`  Gas usado: ${v3.gasUsed || 'N/A'}`);
@@ -392,6 +415,9 @@ async function simV3() {
       console.log(`  Taxa de câmbio: ${v3.exchangeRate} DAI por ETH`);
     } else {
       console.log(`  DAI recebido: N/A (Tenderly não retornou dados)`);
+    }
+    if (v3.dashboardUrl) {
+      console.log(`  🔗 Dashboard: ${v3.dashboardUrl}`);
     }
     
     // Comparação detalhada
@@ -420,6 +446,18 @@ async function simV3() {
       console.log('   Os valores mostrados são estimativas baseadas em preços de mercado.');
       console.log('   As simulações foram executadas com sucesso (gas usado é real).');
       console.log('   Para dados mais precisos, use a VirtualNet ou consultas diretas aos pools.\n');
+    }
+    
+    // Mostrar links do dashboard de forma destacada
+    if (v2.dashboardUrl || v3.dashboardUrl) {
+      console.log('🔗 Links para análise no Dashboard Tenderly:');
+      if (v2.dashboardUrl) {
+        console.log(`   📊 Uniswap V2: ${v2.dashboardUrl}`);
+      }
+      if (v3.dashboardUrl) {
+        console.log(`   📊 Uniswap V3: ${v3.dashboardUrl}`);
+      }
+      console.log('');
     }
     
     console.log('✅ Simulações concluídas com sucesso!');

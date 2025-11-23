@@ -8,6 +8,7 @@
     "compare": "tsx src/simulate/01_uniswap_compare.ts",
     "compare:raw": "tsx src/simulate/01_uniswap_compare_raw.ts",
     "test:minimal": "tsx src/simulate/test_minimal.ts",
+    "test:verify": "tsx src/simulate/test_simple_verify.ts",
     "test:formats": "tsx src/simulate/test_formats.ts",
     "test:rest": "tsx src/simulate/test_rest.ts",
     "bundle:spot": "tsx src/simulate/02_bundle_spot_oracle_attack.ts",

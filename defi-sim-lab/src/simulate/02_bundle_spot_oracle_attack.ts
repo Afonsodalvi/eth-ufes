@@ -55,6 +55,7 @@ async function simulateSwap(amount: bigint, label: string) {
     network_id: '1',
     block_number: Number(blockNumber),
     simulation_type: 'full',
+    save: true,  // Salva sempre no dashboard
     save_if_fails: true,
     from: FROM.toLowerCase(),
     to: UNISWAP_V2_ROUTER.toLowerCase(),
@@ -83,50 +84,80 @@ async function simulateSwap(amount: bigint, label: string) {
     c.address?.toLowerCase() === FROM.toLowerCase() && c.asset?.symbol === 'DAI'
   );
 
+  // Obter ID da simulação e URL do dashboard
+  const simId = data.simulation?.id || data.id;
+  const dashboardUrl = simId ? `https://dashboard.tenderly.co/${ACCOUNT}/${PROJECT}/simulator/${simId}` : null;
+
   return {
     label,
     gasUsed,
     daiAmount: daiGain?.amount || daiGain?.delta,
     daiType: daiGain?.type || '',
-    blockNumber: Number(blockNumber)
+    blockNumber: Number(blockNumber),
+    dashboardUrl
   };
 }
 
 (async () => {
   try {
-    console.log('🚨 Simulando Spot Oracle Attack\n');
-    console.log('Cenário:');
-    console.log('  TX1: Ataque faz swap MUITO grande (5 ETH) - manipula spot price');
-    console.log('  TX2: Vítima faz swap pequeno (0.1 ETH) - recebe preço pior devido ao impacto da TX1\n');
-    console.log(`Endereço FROM: ${FROM}\n`);
+    console.log('🚨 SIMULAÇÃO: Spot Oracle Attack\n');
+    console.log('='.repeat(60));
+    console.log('📚 O QUE ESTAMOS TESTANDO:');
+    console.log('   Este script demonstra como um swap grande pode manipular');
+    console.log('   o preço spot de um DEX e afetar transações subsequentes.\n');
+    console.log('📖 CENÁRIO:');
+    console.log('   TX1: Ataque faz swap MUITO grande (5 ETH)');
+    console.log('        → Isso manipula o preço spot do pool');
+    console.log('   TX2: Vítima faz swap pequeno (0.1 ETH)');
+    console.log('        → Recebe preço pior devido ao impacto da TX1\n');
+    console.log('💡 POR QUE ISSO É PERIGOSO:');
+    console.log('   Se um protocolo usar o preço spot de um DEX como oráculo,');
+    console.log('   um atacante pode manipular o preço e causar prejuízos.\n');
+    console.log('='.repeat(60));
+    console.log(`📍 Endereço usado na simulação: ${FROM}\n`);
 
     // Simular as duas transações sequencialmente
-    console.log('⏳ Simulando TX1 (Swap Grande)...');
+    console.log('⏳ Passo 1: Simulando TX1 (Swap Grande de 5 ETH)...');
+    console.log('   Enviando para Tenderly...\n');
     const tx1 = await simulateSwap(amountBigEth, 'Ataque');
+    if (tx1.dashboardUrl) {
+      console.log(`   ✅ TX1 simulada! Link: ${tx1.dashboardUrl}\n`);
+    }
     
-    console.log('⏳ Simulando TX2 (Swap Pequeno)...');
+    console.log('⏳ Passo 2: Simulando TX2 (Swap Pequeno de 0.1 ETH)...');
+    console.log('   Enviando para Tenderly...\n');
     const tx2 = await simulateSwap(amountSmallEth, 'Vítima');
+    if (tx2.dashboardUrl) {
+      console.log(`   ✅ TX2 simulada! Link: ${tx2.dashboardUrl}\n`);
+    }
 
-    console.log('\n=== RESULTADOS ===\n');
+    console.log('\n' + '='.repeat(60));
+    console.log('📊 RESULTADOS DAS SIMULAÇÕES\n');
     
-    console.log(`📊 TX1 (${tx1.label} - Swap Grande de 5 ETH):`);
-    console.log(`  Status: ✅ Sucesso`);
-    console.log(`  Gas usado: ${tx1.gasUsed || 'N/A'}`);
+    console.log(`📈 TX1 (${tx1.label} - Swap Grande de 5 ETH):`);
+    console.log(`   ✅ Status: Sucesso`);
+    console.log(`   ⛽ Gas usado: ${tx1.gasUsed || 'N/A'}`);
     if (tx1.daiAmount) {
       const daiAmount = Number(tx1.daiAmount) / 1e18;
       const rate = daiAmount / 5; // DAI por ETH
-      console.log(`  DAI recebido: ${daiAmount.toFixed(4)} DAI`);
-      console.log(`  Taxa de câmbio: ${rate.toFixed(2)} DAI por ETH`);
+      console.log(`   💰 DAI recebido: ${daiAmount.toFixed(4)} DAI`);
+      console.log(`   💱 Taxa de câmbio: ${rate.toFixed(2)} DAI por ETH`);
+    }
+    if (tx1.dashboardUrl) {
+      console.log(`   🔗 Ver no Dashboard: ${tx1.dashboardUrl}`);
     }
     
-    console.log(`\n📊 TX2 (${tx2.label} - Swap Pequeno de 0.1 ETH):`);
-    console.log(`  Status: ✅ Sucesso`);
-    console.log(`  Gas usado: ${tx2.gasUsed || 'N/A'}`);
+    console.log(`\n📈 TX2 (${tx2.label} - Swap Pequeno de 0.1 ETH):`);
+    console.log(`   ✅ Status: Sucesso`);
+    console.log(`   ⛽ Gas usado: ${tx2.gasUsed || 'N/A'}`);
     if (tx2.daiAmount) {
       const daiAmount = Number(tx2.daiAmount) / 1e18;
       const rate = daiAmount / 0.1; // DAI por ETH
-      console.log(`  DAI recebido: ${daiAmount.toFixed(4)} DAI`);
-      console.log(`  Taxa de câmbio: ${rate.toFixed(2)} DAI por ETH`);
+      console.log(`   💰 DAI recebido: ${daiAmount.toFixed(4)} DAI`);
+      console.log(`   💱 Taxa de câmbio: ${rate.toFixed(2)} DAI por ETH`);
+    }
+    if (tx2.dashboardUrl) {
+      console.log(`   🔗 Ver no Dashboard: ${tx2.dashboardUrl}`);
     }
     
     // Comparar preços
@@ -135,20 +166,34 @@ async function simulateSwap(amount: bigint, label: string) {
       const tx2Rate = Number(tx2.daiAmount) / 0.1;
       const diff = ((tx2Rate - tx1Rate) / tx1Rate * 100).toFixed(2);
       
-      console.log(`\n📉 Comparação de Preços:`);
-      console.log(`  TX1 (ataque): ${tx1Rate.toFixed(2)} DAI por ETH`);
-      console.log(`  TX2 (vítima): ${tx2Rate.toFixed(2)} DAI por ETH`);
-      console.log(`  Diferença: ${diff}%`);
+      console.log(`\n📉 ANÁLISE: Comparação de Preços`);
+      console.log(`   TX1 (ataque): ${tx1Rate.toFixed(2)} DAI por ETH`);
+      console.log(`   TX2 (vítima): ${tx2Rate.toFixed(2)} DAI por ETH`);
+      console.log(`   Diferença: ${diff}%`);
       
       if (Math.abs(Number(diff)) > 0.1) {
-        console.log(`\n⚠️  AVISO: Em um bundle real no mesmo bloco, o impacto seria maior!`);
+        console.log(`\n⚠️  ATENÇÃO: Em um bundle real no mesmo bloco, o impacto seria maior!`);
         console.log(`   A TX2 receberia um preço ainda pior devido ao slippage acumulado.`);
       }
     }
     
-    console.log('\n💡 Observação: Esta simulação demonstra o conceito de manipulação de spot.');
+    // Mostrar links de forma destacada
+    if (tx1.dashboardUrl || tx2.dashboardUrl) {
+      console.log('\n' + '='.repeat(60));
+      console.log('🔗 LINKS PARA ANÁLISE NO DASHBOARD TENDERLY:');
+      if (tx1.dashboardUrl) {
+        console.log(`   📊 TX1 (Ataque): ${tx1.dashboardUrl}`);
+      }
+      if (tx2.dashboardUrl) {
+        console.log(`   📊 TX2 (Vítima): ${tx2.dashboardUrl}`);
+      }
+      console.log('='.repeat(60));
+    }
+    
+    console.log('\n💡 CONCLUSÃO:');
+    console.log('   Esta simulação demonstra o conceito de manipulação de spot.');
     console.log('   Em um bundle real no mesmo bloco, o impacto seria ainda mais significativo.');
-    console.log('   Isso demonstra por que usar spot de DEX como oráculo é perigoso.\n');
+    console.log('   ⚠️  Isso demonstra por que usar spot de DEX como oráculo é perigoso!\n');
     
   } catch (error: any) {
     console.error('❌ Erro na simulação:', error.message);

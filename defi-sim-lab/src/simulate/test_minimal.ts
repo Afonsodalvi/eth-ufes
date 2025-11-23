@@ -46,7 +46,8 @@ const publicClient = createPublicClient({
     const payload = {
       blockNumber: Number(blockNumber),     // número (não "latest", não string)
       simulation_type: 'full',              // "full" para erros mais verbosos
-      save_if_fails: true,
+      save: true,                            // Salva sempre no dashboard
+      save_if_fails: true,                   // Também salva se falhar
       transaction: {
         from: FROM.toLowerCase(),           // lowercase evita validações chatas
         to: TO.toLowerCase(),                // transferência para endereço diferente
@@ -75,6 +76,15 @@ const publicClient = createPublicClient({
     // Verificar se a transação foi executada com sucesso
     const hasError = res.trace?.some((t: any) => t.error) || (res as any).transaction?.error;
     const status = (res as any).transaction?.status ?? res.status;
+    
+    // Mostrar ID da simulação se foi salva
+    const simId = (res as any).simulation?.id || (res as any).id;
+    if (simId) {
+      const account = process.env.TENDERLY_ACCOUNT!;
+      const project = process.env.TENDERLY_PROJECT!;
+      const dashboardUrl = `https://dashboard.tenderly.co/${account}/${project}/simulator/${simId}`;
+      console.log(`\n📊 Simulação salva no dashboard: ${dashboardUrl}`);
+    }
     
     if (hasError) {
       console.log('❌ ERRO na simulação:');

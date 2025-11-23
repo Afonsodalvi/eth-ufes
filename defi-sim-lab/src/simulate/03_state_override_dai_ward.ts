@@ -26,8 +26,21 @@ function calcStorageSlot(addr: `0x${string}`, slot: bigint): `0x${string}` {
 }
 
 (async () => {
-  console.log('🔐 Demonstração: State Override - DAI Wards\n');
-  console.log('Cenário: Tornar um endereço arbitrário "ward" (admin) via override\n');
+  console.log('🔐 SIMULAÇÃO: State Override - DAI Wards\n');
+  console.log('='.repeat(60));
+  console.log('📚 O QUE ESTAMOS TESTANDO:');
+  console.log('   Este script demonstra como usar "State Override" para simular');
+  console.log('   cenários impossíveis na blockchain real, como tornar um endereço');
+  console.log('   arbitrário admin de um contrato.\n');
+  console.log('📖 CENÁRIO:');
+  console.log('   Vamos tornar um endereço fake "ward" (admin) do contrato DAI');
+  console.log('   usando State Override, permitindo que ele mint DAI sem permissão real.\n');
+  console.log('💡 POR QUE ISSO É ÚTIL:');
+  console.log('   Permite testar cenários de privilégios e vulnerabilidades');
+  console.log('   sem alterar a blockchain real ou precisar de permissões reais.\n');
+  console.log('='.repeat(60));
+  console.log(`📍 Contrato DAI: ${DAI}`);
+  console.log(`📍 Endereço fake que será tornado ward: ${FAKE_WARD}\n`);
   
   const storageKey = calcStorageSlot(FAKE_WARD as `0x${string}`, WARDS_SLOT);
   const simulateUrl = `https://api.tenderly.co/api/v1/account/${TENDERLY_ACCOUNT}/project/${TENDERLY_PROJECT}/simulate`;
@@ -40,20 +53,24 @@ function calcStorageSlot(addr: `0x${string}`, slot: bigint): `0x${string}` {
     FAKE_WARD.slice(2).padStart(64, '0') + // recipient address
     mintAmount.toString(16).padStart(64, '0'); // amount
 
-  console.log(`📍 Storage slot calculado: ${storageKey}`);
-  console.log(`   wards[${FAKE_WARD}] será definido como 1 (ativo)\n`);
+  console.log(`🔑 Storage slot calculado: ${storageKey}`);
+  console.log(`   Este slot armazena o valor de wards[${FAKE_WARD}]`);
+  console.log(`   Vamos definir como 1 (ativo) usando State Override\n`);
 
   try {
+    console.log('⏳ Preparando simulação...');
+    
     // Obter block_number atual e fees EIP-1559
     const blockNumber = await publicClient.getBlockNumber();
     const fees = await getEip1559Fees(blockNumber);
     const blockNumberNum = Number(blockNumber);
 
-    console.log(`📦 BlockNumber: ${blockNumber}`);
-    console.log(`⛽ Max Fee Per Gas: ${fees.maxFeePerGas} wei\n`);
+    console.log(`   📦 BlockNumber: ${blockNumber}`);
+    console.log(`   ⛽ Max Fee Per Gas: ${fees.maxFeePerGas} wei`);
+    console.log(`   🚀 Enviando para Tenderly...\n`);
 
     const res = await axios.post(simulateUrl, {
-      save: true,
+      save: true,  // Salva sempre no dashboard
       save_if_fails: true,
       simulation_type: 'full',
       network_id: '1',
@@ -75,27 +92,36 @@ function calcStorageSlot(addr: `0x${string}`, slot: bigint): `0x${string}` {
       headers: { 'X-Access-Key': TENDERLY_KEY! }
     });
 
-    console.log('=== RESULTADO DA SIMULAÇÃO ===\n');
+    // Obter ID da simulação e URL do dashboard
+    const simulation = res.data.simulation || res.data;
+    const simId = simulation?.id || res.data.id;
+    const dashboardUrl = simId ? `https://dashboard.tenderly.co/${TENDERLY_ACCOUNT}/${TENDERLY_PROJECT}/simulator/${simId}` : null;
+
+    console.log('✅ Resposta recebida do Tenderly!\n');
+    
+    console.log('='.repeat(60));
+    console.log('📊 RESULTADO DA SIMULAÇÃO\n');
+    
     const transaction = res.data.transaction || res.data;
     const status = transaction.status !== false && transaction.status !== 0;
-    console.log(`Status: ${status ? '✅ Sucesso' : '❌ Falhou'}`);
-    console.log(`Gas usado: ${transaction.gas_used || 'N/A'}\n`);
+    console.log(`✅ Status: ${status ? 'Sucesso' : 'Falhou'}`);
+    console.log(`⛽ Gas usado: ${transaction.gas_used || 'N/A'}\n`);
     
-    const simulation = res.data.simulation || res.data;
     const assetChanges = simulation?.asset_changes || [];
     
     if (assetChanges.length > 0) {
-      console.log('📊 Mudanças de Assets:');
+      console.log('💰 Mudanças de Assets (Tokens):');
       assetChanges.forEach((change: any) => {
         if (change.asset?.symbol === 'DAI') {
           const amount = change.amount || change.delta || '0';
+          const amountEth = Number(amount) / 1e18;
           const type = change.type || '';
           const address = change.address || change.to || 'N/A';
-          console.log(`  ${type} ${amount} DAI para ${address}`);
+          console.log(`   ${type}: ${amountEth.toFixed(4)} DAI para ${address}`);
         }
       });
     } else {
-      console.log('(Nenhuma mudança de asset detectada)');
+      console.log('   (Nenhuma mudança de asset detectada)');
     }
     
     // Mostrar mudanças de estado
@@ -106,18 +132,28 @@ function calcStorageSlot(addr: `0x${string}`, slot: bigint): `0x${string}` {
         if (sc.address?.toLowerCase() === DAI.toLowerCase() && sc.storage) {
           sc.storage.forEach((s: any) => {
             if (s.slot === storageKey) {
-              console.log(`  Slot ${storageKey}:`);
-              console.log(`    Antes: ${s.previousValue}`);
-              console.log(`    Depois: ${s.newValue}`);
+              console.log(`   Slot ${storageKey}:`);
+              console.log(`     Antes: ${s.previousValue}`);
+              console.log(`     Depois: ${s.newValue}`);
+              console.log(`     ✅ wards[${FAKE_WARD}] foi definido como 1 (ativo)`);
             }
           });
         }
       });
     }
     
-    console.log('\n💡 Observação: Esta simulação só funciona com override!');
-    console.log('   Na mainnet real, FAKE_WARD não tem permissão para mintar.');
-    console.log('   O override permite simular cenários de privilégios sem alterar a blockchain real.\n');
+    // Mostrar link do dashboard
+    if (dashboardUrl) {
+      console.log('\n' + '='.repeat(60));
+      console.log('🔗 LINK PARA ANÁLISE NO DASHBOARD TENDERLY:');
+      console.log(`   ${dashboardUrl}`);
+      console.log('='.repeat(60));
+    }
+    
+    console.log('\n💡 CONCLUSÃO:');
+    console.log('   ✅ Esta simulação só funciona com State Override!');
+    console.log('   ⚠️  Na mainnet real, FAKE_WARD não tem permissão para mintar.');
+    console.log('   🎯 O override permite simular cenários de privilégios sem alterar a blockchain real.\n');
     
   } catch (error: any) {
     console.error('❌ Erro na simulação:', error.response?.data || error.message);

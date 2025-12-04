@@ -2,8 +2,23 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+solc = "0.8.26"  # Especificar versão do Solidity para o Slither detectar
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
+# Remappings para Uniswap V4 e outras dependências
+remappings = [
+    '@chainlink/contracts/=lib/chainlink-evm/contracts/',
+    'v4-core/=lib/v4-core/src/',
+    'v4-periphery/=lib/v4-periphery/src/',
+    '@uniswap/v4-core/=lib/v4-core/',
+    '@openzeppelin/=lib/openzeppelin-contracts/contracts/',
+    'forge-std/=lib/forge-std/src/',
+    'solmate/=lib/v4-core/lib/solmate/',
+    'ds-test/=lib/forge-std/lib/ds-test/src/',
+    # Usar nossa versão customizada do PoolManager quando importado de v4-core
+    'v4-core/PoolManager.sol=src/core/PoolManager.sol'
+]
 
-remappings = ['@chainlink/contracts/=lib/chainlink-evm/contracts/']
+# Excluir PoolManager da lib da compilação (usando via script wrapper)
+# Nota: Foundry não tem opção direta de exclude, então usamos script wrapper
